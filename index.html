@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&family=Playfair+Display:wght@700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
     
     <style>
+        /* TEMA UTAMA: NOIR */
         * { box-sizing: border-box; }
         body { 
             margin:0; background: #000; color:#f1f5f9; text-align:center; 
@@ -19,6 +20,7 @@
         h1 { font-family: 'Playfair Display', serif; color: #facc15; text-shadow: 2px 2px 4px #000; font-size: 32px; margin: 20px 0; }
         h2 { font-family: 'Playfair Display', serif; color: #f1f5f9; }
         
+        /* LAYAR & CARD */
         .screen { position:absolute; width:100%; height:100%; display:none; padding: 20px 10px; box-sizing: border-box; overflow-y: auto; }
         .active { display:block; }
         
@@ -28,6 +30,7 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.6);
         }
         
+        /* INPUT & TOMBOL */
         input { 
             padding: 14px; border-radius: 6px; border: 1px solid #4b5563; margin-bottom: 12px; 
             width: 90%; font-size: 16px; background: #000; color: #facc15; 
@@ -47,9 +50,7 @@
         .btn-start { background: linear-gradient(#15803d, #14532d); box-shadow: 0 4px 0 #052e16; display: none; }
         .btn-back { background: linear-gradient(#4b5563, #1f2937); box-shadow: 0 4px 0 #111827; }
 
-        .guide { text-align: left; font-size: 14px; line-height: 1.4; color: #94a3b8; }
-        .guide b { color: #facc15; }
-
+        /* PLAYER LIST */
         li { 
             padding:12px; margin:8px 0; border-radius:4px; background:#020617; 
             border: 1px solid #1f2937; display: flex; justify-content: space-between; 
@@ -57,12 +58,14 @@
         }
         .dead { background:#2a0101; text-decoration:line-through; border-color: #b91c1c; opacity: 0.6; }
 
+        /* HOST PANEL */
         #hostPanel { 
             display:none; background:rgba(0, 0, 0, 0.95); padding:15px; border-top: 3px solid #facc15; 
             position: fixed; bottom: 0; width: 100%; z-index: 100; box-shadow: 0 -5px 20px #000;
         }
         .host-btn { background: #ca8a04; font-size: 10px; padding: 8px 12px; margin: 2px; text-transform: none; }
         
+        /* ACTION AREA */
         #instruction { font-size:16px; color:#fde047; font-family: 'Roboto Mono', monospace; border-left: 4px solid #b91c1c; padding-left: 10px; text-align: left; }
         
         .playerCard { 
@@ -85,16 +88,16 @@
     <div class="card">
         <input id="inputName" placeholder="Nama Kamu"><br>
         <input id="inputRoom" placeholder="ID ROOM"><br>
-        <button onclick="createRoom()" style="background: #6d28d9; box-shadow: 0 4px 0 #4c1d95;">BUAT ROOM (HOST)</button>
+        <button onclick="createRoom()" style="background: #6d28d9;">BUAT ROOM (WASIT)</button>
         <button onclick="joinRoom()" class="btn-join">IKUT MAIN (PLAYER)</button>
     </div>
-    <div class="card guide">
+    <div class="card" style="text-align: left; font-size: 14px; color: #94a3b8;">
         <center><b>📜 DOSSIER PERAN</b></center><br>
-        🌑 <b>Mafia:</b> Eliminasi warga tiap malam.<br>
+        🌑 <b>Mafia:</b> Bunuh warga tiap malam.<br>
         🏥 <b>Dokter:</b> Lindungi 1 orang (Self-save max 2x).<br>
         🔍 <b>Polisi:</b> Cek identitas seseorang.<br>
-        🃏 <b>Jester:</b> Menang jika berhasil di-vote mati siang hari.<br>
-        👨‍🌾 <b>Warga:</b> Temukan pengkhianat kota ini.
+        🃏 <b>Jester:</b> Menang jika di-vote mati siang hari.<br>
+        👨‍🌾 <b>Warga:</b> Temukan Mafia di antara kalian.
     </div>
 </div>
 
@@ -163,8 +166,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let currentRoom = "", myId = "u-" + Math.floor(Math.random() * 100000);
-let isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, selfSaveCount = 0;
+// FIX 1: UID Tetap meski di-refresh
+let myId = localStorage.getItem("mafia_uid");
+if (!myId) {
+    myId = "u-" + Math.floor(Math.random() * 1000000);
+    localStorage.setItem("mafia_uid", myId);
+}
+
+let currentRoom = "", isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, selfSaveCount = 0;
 
 function triggerFog(callback) {
     const fog = document.getElementById("fog");
@@ -179,15 +188,14 @@ function showScreen(id) {
     });
 }
 
-// FUNGSI LOBBY & BACK
+// LOGIKA ROOM
 function createRoom() {
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
     if (!room) return alert("Isi ID Room!");
     currentRoom = room; isHost = true; isPlayer = false;
-    db.ref("rooms/" + room).set({ phase: "waiting", host: myId, nightStep: "none" });
-    db.ref("rooms/" + room).onDisconnect().remove(); // Auto hapus jika host mati koneksi
+    db.ref("rooms/" + room).update({ phase: "waiting", host: myId, nightStep: "none" });
+    db.ref("rooms/" + room).onDisconnect().remove(); // FIX 3: Auto hapus room jika host DC
     document.getElementById("roomDisplay").innerText = "ID ROOM: " + room;
-    document.getElementById("waitingTitle").innerText = "👑 PANEL WASIT";
     showScreen("screenWaiting");
     listenGame();
 }
@@ -196,38 +204,37 @@ function joinRoom() {
     let name = document.getElementById("inputName").value.trim();
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
     if (!name || !room) return alert("Lengkapi data!");
-    currentRoom = room; isPlayer = true; isHost = false;
-    db.ref("rooms/" + room + "/players/" + myId).set({ name: name, alive: true, role: "Warga", selfSave: 0 });
-    document.getElementById("roomDisplay").innerText = "ID ROOM: " + room;
-    showScreen("screenWaiting");
-    listenGame();
+
+    db.ref("rooms/" + room).once("value", snap => {
+        if (!snap.exists()) return alert("Room tidak ditemukan!");
+        // FIX 2: Larang join jika game sudah mulai
+        if (snap.val().phase !== "waiting") return alert("Permainan sudah dimulai!");
+
+        currentRoom = room; isPlayer = true; isHost = false;
+        const playerRef = db.ref("rooms/" + room + "/players/" + myId);
+        playerRef.set({ name: name, alive: true, role: "Warga", selfSave: 0 });
+        playerRef.onDisconnect().remove(); // FIX 3: Auto hapus player jika tab ditutup
+
+        document.getElementById("roomDisplay").innerText = "ID ROOM: " + room;
+        showScreen("screenWaiting");
+        listenGame();
+    });
 }
 
 function backToLobby() {
-    if (isHost) {
-        disbandRoom();
-    } else {
-        db.ref("rooms/" + currentRoom + "/players/" + myId).remove().then(() => {
-            location.reload();
-        });
-    }
+    if (isHost) disbandRoom();
+    else db.ref("rooms/" + currentRoom + "/players/" + myId).remove().then(() => location.reload());
 }
 
 function disbandRoom() {
     if (confirm("Bubarkan room ini? Semua pemain akan dikeluarkan.")) {
-        db.ref("rooms/" + currentRoom).remove().then(() => {
-            location.reload();
-        });
+        db.ref("rooms/" + currentRoom).remove().then(() => location.reload());
     }
 }
 
 function listenGame() {
-    // Listener untuk deteksi room bubar (Auto-kick)
     db.ref("rooms/" + currentRoom).on("value", snap => {
-        if (!snap.exists()) {
-            alert("Room telah dibubarkan oleh Host.");
-            location.reload();
-        }
+        if (!snap.exists()) { alert("Room telah dibubarkan."); location.reload(); }
     });
 
     db.ref("rooms/" + currentRoom + "/players").on("value", snap => {
@@ -250,23 +257,24 @@ function listenGame() {
 
     db.ref("rooms/" + currentRoom + "/phase").on("value", s => {
         if (!s || !s.val()) return;
-        if (s.val() === "night" || s.val() === "day") {
+        let phase = s.val();
+        if (phase === "night" || phase === "day") {
             showScreen("screenGame");
-            document.getElementById("phaseText").innerText = s.val() === "night" ? "🌙 MALAM HARI" : "☀️ SIANG HARI";
+            document.getElementById("phaseText").innerText = phase === "night" ? "🌙 MALAM HARI" : "☀️ SIANG HARI";
             document.getElementById("hostPanel").style.display = isHost ? "block" : "none";
             document.getElementById("hostInfo").style.display = isHost ? "block" : "none";
             document.getElementById("playerInfo").style.display = isPlayer ? "block" : "none";
-            document.getElementById("nightControls").style.display = (isHost && s.val() === "night") ? "block" : "none";
-            document.getElementById("dayControls").style.display = (isHost && s.val() === "day") ? "block" : "none";
-            if (s.val() === "day") startDayLogic();
+            document.getElementById("nightControls").style.display = (isHost && phase === "night") ? "block" : "none";
+            document.getElementById("dayControls").style.display = (isHost && phase === "day") ? "block" : "none";
+            if (phase === "day") startDayLogic();
         }
-        if (s.val() === "end") showScreen("screenEnd");
+        if (phase === "end") showScreen("screenEnd");
     });
 
     db.ref("rooms/" + currentRoom + "/nightStep").on("value", s => updateNightTurnUI(s.val()));
 }
 
-// LOGIKA UTAMA GAME
+// LOGIKA GAMEPLAY
 function startGame() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let players = snap.val(); let ids = Object.keys(players);
@@ -285,17 +293,16 @@ function startGame() {
     });
 }
 
+function setNightStep(step) { db.ref("rooms/" + currentRoom).update({ nightStep: step }); }
+
 function updateNightTurnUI(step) {
     const area = document.getElementById("actionArea"); area.innerHTML = "";
-    if (isHost) {
-        document.getElementById("instruction").innerText = "Wasit: Silakan panggil [" + step.toUpperCase() + "].";
-        return;
-    }
-    if (!isAlive) { document.getElementById("instruction").innerText = "Dossier ditutup. Kamu mati."; return; }
+    if (isHost) { document.getElementById("instruction").innerText = "Wasit: Panggil [" + step.toUpperCase() + "]"; return; }
+    if (!isAlive) { document.getElementById("instruction").innerText = "Kamu sudah mati."; return; }
     
     if (step === "none") document.getElementById("instruction").innerText = "Malam yang sunyi... Pejamkan mata.";
     else if (myRole.toLowerCase() === step) {
-        document.getElementById("instruction").innerText = "Tentukan targetmu sekarang:";
+        document.getElementById("instruction").innerText = "Pilih targetmu sekarang:";
         renderTargets(id => {
             if (myRole === "Mafia") db.ref("rooms/" + currentRoom + "/night/kill").set(id);
             if (myRole === "Dokter") {
@@ -303,19 +310,25 @@ function updateNightTurnUI(step) {
                 db.ref("rooms/" + currentRoom + "/night/save").set(id);
                 if (id === myId) db.ref("rooms/" + currentRoom + "/players/" + myId).update({ selfSave: selfSaveCount + 1 });
             }
-            if (myRole === "Polisi") db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => alert("INTEL: [" + s.val().name + "] adalah [" + s.val().role.toUpperCase() + "]"));
+            if (myRole === "Polisi") db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => alert("INTEL: " + s.val().name + " adalah " + s.val().role.toUpperCase()));
         });
-    } else document.getElementById("instruction").innerText = "Sstt! Wasit sedang beraksi dengan " + step.toUpperCase() + ".";
+    } else document.getElementById("instruction").innerText = "Ssst! Wasit sedang memanggil " + step.toUpperCase();
 }
 
 function renderTargets(callback) {
+    const area = document.getElementById("actionArea"); area.innerHTML = ""; 
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
-        let p = snap.val();
-        for (let id in p) {
-            if (p[id].alive) {
-                let d = document.createElement("div"); d.className = "playerCard"; d.innerText = p[id].name;
-                d.onclick = () => { document.querySelectorAll(".playerCard").forEach(c => c.classList.remove("selectedTarget")); d.classList.add("selectedTarget"); callback(id); };
-                document.getElementById("actionArea").appendChild(d);
+        let players = snap.val();
+        for (let id in players) {
+            if (players[id].alive) {
+                let d = document.createElement("div"); d.className = "playerCard"; d.innerText = players[id].name;
+                // FIX 4: Click listener yang responsif
+                d.onclick = function() {
+                    document.querySelectorAll(".playerCard").forEach(c => c.classList.remove("selectedTarget"));
+                    d.classList.add("selectedTarget");
+                    callback(id);
+                };
+                area.appendChild(d);
             }
         }
     });
@@ -333,11 +346,11 @@ function resolveNight() {
 function startDayLogic() {
     db.ref("rooms/" + currentRoom + "/lastDead").once("value", s => {
         let mId = s.val();
-        document.getElementById("instruction").innerText = (mId === "TIDAK ADA") ? "Tidak ada mayat pagi ini." : "Berita duka! Seseorang ditemukan tewas.";
+        document.getElementById("instruction").innerText = (mId === "TIDAK ADA") ? "Pagi yang tenang... Tidak ada mayat." : "Berita duka! Seseorang ditemukan tewas.";
     });
     setTimeout(() => {
         if(isPlayer && isAlive) {
-            document.getElementById("instruction").innerText = "VOTE PENGKHIANAT!";
+            document.getElementById("instruction").innerText = "DISKUSI DIMULAI! Vote siapa pengkhianatnya:";
             renderTargets(id => { if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); });
         }
     }, 4000);
@@ -356,7 +369,6 @@ function resolveVote() {
                 if (p.role === "Jester") {
                     document.getElementById("endText").innerText = "JESTER MENANG! (" + p.name + ")";
                     db.ref("rooms/" + currentRoom + "/phase").set("end");
-                    finishGame();
                 } else {
                     db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false });
                     alert("[" + p.name + "] telah dieksekusi.");
@@ -372,15 +384,10 @@ function checkWin() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let p = snap.val(), m = 0, w = 0;
         for (let i in p) if (p[i].alive) p[i].role === "Mafia" ? m++ : w++;
-        if (m === 0) { document.getElementById("endText").innerText = "WARGA MENANG!"; finishGame(); }
-        else if (m >= w) { document.getElementById("endText").innerText = "MAFIA MENANG!"; finishGame(); }
+        if (m === 0) { document.getElementById("endText").innerText = "WARGA MENANG!"; db.ref("rooms/" + currentRoom + "/phase").set("end"); }
+        else if (m >= w) { document.getElementById("endText").innerText = "MAFIA MENANG!"; db.ref("rooms/" + currentRoom + "/phase").set("end"); }
         else db.ref("rooms/" + currentRoom).update({ phase: "night" });
     });
-}
-
-function finishGame() {
-    db.ref("rooms/" + currentRoom + "/phase").set("end");
-    if(isHost) setTimeout(() => db.ref("rooms/" + currentRoom).remove(), 30000);
 }
 </script>
 </body>
