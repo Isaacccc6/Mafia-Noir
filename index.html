@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAFIA: NOIR - VOTE FIX</title>
+    <title>MAFIA: NOIR - JESTER RESTORED</title>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&family=Playfair+Display:wght@700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
@@ -40,6 +40,14 @@
         <input id="inputRoom" placeholder="ID ROOM"><br>
         <button onclick="createRoom()" style="background: #6d28d9;">BUAT ROOM (WASIT)</button>
         <button onclick="joinRoom()" class="btn-join">IKUT MAIN (PLAYER)</button>
+    </div>
+    <div class="card" style="text-align: left; font-size: 14px; color: #94a3b8;">
+        <center><b>📜 DOSSIER PERAN</b></center><br>
+        🌑 <b>Mafia:</b> Bunuh warga tiap malam.<br>
+        🏥 <b>Dokter:</b> Lindungi 1 orang (Self-save max 2x).<br>
+        🔍 <b>Polisi:</b> Cek identitas seseorang.<br>
+        🃏 <b>Jester:</b> Menang jika di-vote mati siang hari.<br>
+        👨‍🌾 <b>Warga:</b> Temukan Mafia di antara kalian.
     </div>
 </div>
 
@@ -198,19 +206,20 @@ function startDayLogic() {
     }, 4000);
 }
 
-// FIX: PERHITUNGAN VOTE
 function resolveVote() {
     db.ref("rooms/" + currentRoom + "/votes").once("value", s => {
         let v = s.val() || {}; let r = {};
         for (let p in v) if(v[p] !== "skip") r[v[p]] = (r[v[p]] || 0) + 1;
-        
         let sorted = Object.keys(r).sort((a, b) => r[b] - r[a]);
         let matiId = (sorted.length > 0 && (r[sorted[0]] > (r[sorted[1]] || 0))) ? sorted[0] : null;
 
         if (matiId) {
             db.ref("rooms/" + currentRoom + "/players/" + matiId).once("value", snap => {
                 let p = snap.val();
-                if (p.role === "Jester") { db.ref("rooms/" + currentRoom + "/phase").set("end"); db.ref("rooms/" + currentRoom + "/endText").set("JESTER MENANG!"); }
+                if (p.role === "Jester") { 
+                    db.ref("rooms/" + currentRoom + "/phase").set("end"); 
+                    db.ref("rooms/" + currentRoom + "/endText").set("JESTER MENANG!"); 
+                }
                 else {
                     alert(p.name + " DIEKSEKUSI!");
                     db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false }).then(() => checkWin());
@@ -224,8 +233,7 @@ function resolveVote() {
 function checkWin() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let p = snap.val(), m = 0, w = 0; if(!p) return;
-        for (let i in p) if (p[id=i].alive) p[i].role === "Mafia" ? m++ : w++;
-        
+        for (let i in p) if (p[i].alive) p[i].role === "Mafia" ? m++ : w++;
         if (m === 0) { db.ref("rooms/" + currentRoom + "/phase").set("end"); }
         else if (m >= w) { db.ref("rooms/" + currentRoom + "/phase").set("end"); }
         else { db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" }); }
