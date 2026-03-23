@@ -12,12 +12,10 @@
         body { 
             margin:0; background: #050505; color:#ffffff; text-align:center; 
             font-family: 'Share Tech Mono', monospace; font-size: 18px;
-            /* Dark dystopian / neon vibe background */
             background-image: linear-gradient(rgba(5,5,5,0.9), rgba(20,0,5,0.95)), url('https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800');
             background-size: cover; background-attachment: fixed;
         }
 
-        /* NEON RED ACCENTS */
         h1 { font-family: 'Orbitron', sans-serif; color: #ff003c; text-shadow: 0 0 10px #ff003c, 0 0 20px #8a0020; font-size: 30px; margin: 20px 0; letter-spacing: 2px;}
         h2 { font-family: 'Orbitron', sans-serif; color: #ffffff; letter-spacing: 1px;}
         
@@ -79,12 +77,24 @@
 </head>
 <body>
 
+<audio id="sfx-start" src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg"></audio>
+<audio id="sfx-announce" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"></audio>
+<audio id="sfx-end" src="https://actions.google.com/sounds/v1/science_fiction/power_down.ogg"></audio>
+
+<audio id="sfx-click" src="https://actions.google.com/sounds/v1/ui/button_click.ogg"></audio>
+<audio id="sfx-eliminate" src="https://actions.google.com/sounds/v1/science_fiction/laser_pew.ogg"></audio>
+<audio id="sfx-night" src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg"></audio>
+<audio id="sfx-mafia" src="https://actions.google.com/sounds/v1/weapons/gun_cocking.ogg"></audio>
+<audio id="sfx-doctor" src="https://actions.google.com/sounds/v1/science_fiction/shield_activate.ogg"></audio>
+<audio id="sfx-police" src="https://actions.google.com/sounds/v1/science_fiction/scifi_scan.ogg"></audio>
+
+
 <div id="fog"></div>
 
 <div id="screenLobby" class="screen active">
     <h1>♠️ BORDERLAND: MAFIA ♥️</h1>
     <div class="card">
-        <input id="inputName" placeholder="PLAYER NAME"><br>
+        <input id="inputName" placeholder="PLAYER ALIAS"><br>
         <input id="inputRoom" placeholder="ARENA ID"><br>
         <button onclick="createRoom()">CREATE ARENA (DEALER)</button>
         <button onclick="joinRoom()" class="btn-join">ENTER ARENA (PLAYER)</button>
@@ -92,10 +102,10 @@
     
     <div class="card" style="text-align: left; font-size: 13px; color: #ddd;">
         <center><b style="color: #ff003c; font-size: 16px;">♦️ GAME RULES ♣️</b></center><br>
-        ♠️ <b>MAFIA:</b> Must select the SAME target to execute. If votes differ, target survives.<br>
+        ♠️ <b>MAFIA:</b> Must select the SAME target to execute.<br>
         ♥️ <b>DOCTOR:</b> Protect a player. Self-heal max 2x.<br>
         ♦️ <b>POLICE:</b> Scan to reveal a player's true identity.<br>
-        🃏 <b style="color: #ff003c;">JOKER: Wins immediately if executed by daytime vote!</b><br>
+        🃏 <b style="color: #ff003c;">JESTER: Wins immediately if executed by daytime vote!</b><br>
         ♣️ <b>CITIZEN:</b> Deduce the Mafia to survive.
     </div>
 </div>
@@ -143,7 +153,8 @@
 </div>
 
 <div id="screenEnd" class="screen">
-    <h1 id="endText" style="color: #ff003c; font-size: 40px;">GAME CLEAR</h1>
+    <h1 id="endText" style="color: #ff003c; font-size: 40px; margin-bottom: 5px;">GAME CLEAR</h1>
+    <h2 id="winnerDisplay" style="color: #39ff14; font-size: 24px; margin-top: 0; margin-bottom: 30px;">--</h2>
     <button onclick="location.reload()">RETURN TO REALITY</button>
 </div>
 
@@ -151,6 +162,15 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
+// --- AUDIO PLAY FUNCTION ---
+function playSound(id) {
+    const audio = document.getElementById(id);
+    if (audio) {
+        audio.currentTime = 0; 
+        audio.play().catch(e => console.log("Audio play blocked by browser. User interaction needed."));
+    }
+}
+
 // --- CONFIG FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyApYcGhedNxPzFHipQkPfAT0W-WigUVG0k",
@@ -170,6 +190,7 @@ localStorage.setItem("mafia_uid", myId);
 let currentRoom = "", isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, currentPhase = "", selfSaveCount = 0;
 
 function createRoom() {
+    playSound('sfx-click');
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
     if (!room) return alert("Enter Arena ID!");
     currentRoom = room; isHost = true;
@@ -181,6 +202,7 @@ function createRoom() {
 }
 
 function joinRoom() {
+    playSound('sfx-click');
     let name = document.getElementById("inputName").value.trim().toUpperCase();
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
     if (!name || !room) return alert("Fill in your details!");
@@ -216,9 +238,29 @@ function listenGame() {
 
     db.ref("rooms/" + currentRoom + "/phase").on("value", s => {
         if (!s.val()) return;
+        
+        // TRIGGER NIGHT SOUND
+        if(s.val() === "night" && currentPhase !== "night" && currentPhase !== "") { playSound('sfx-night'); }
+
+        // TRIGGER END GAME SOUND
+        if(s.val() === "end" && currentPhase !== "end") { playSound('sfx-end'); }
+
         currentPhase = s.val();
-        showScreen(currentPhase === "end" ? "screenEnd" : (currentPhase === "waiting" ? "screenWaiting" : "screenGame"));
-        if(currentPhase === "day" || currentPhase === "night") {
+        
+        if (currentPhase === "end") {
+            db.ref("rooms/" + currentRoom + "/endText").once("value", snap => {
+                if(snap.exists()) {
+                    document.getElementById("winnerDisplay").innerText = "[ " + snap.val() + " ]";
+                    if(snap.val().includes("MAFIA")) document.getElementById("winnerDisplay").style.color = "#ff003c";
+                    else if(snap.val().includes("CITIZENS")) document.getElementById("winnerDisplay").style.color = "#39ff14";
+                    else document.getElementById("winnerDisplay").style.color = "#00e5ff"; 
+                }
+            });
+            showScreen("screenEnd");
+        } else if (currentPhase === "waiting") {
+            showScreen("screenWaiting");
+        } else {
+            showScreen("screenGame");
             document.getElementById("phaseText").innerText = currentPhase === "night" ? "🌙 NIGHT PHASE" : "☀️ DAY PHASE";
             document.getElementById("hostPanel").style.display = isHost ? "block" : "none";
             document.getElementById("dayControls").style.display = (isHost && currentPhase === "day") ? "block" : "none";
@@ -243,13 +285,15 @@ function updateNightTurnUI(step) {
     else if (myRole.toLowerCase() === step) {
         document.getElementById("instruction").innerText = "ACTION REQUIRED: Select your target.";
         renderTargets(id => {
-            if (myRole === "Mafia") db.ref("rooms/" + currentRoom + "/night/mafiaVotes/" + myId).set(id);
+            if (myRole === "Mafia") { playSound('sfx-mafia'); db.ref("rooms/" + currentRoom + "/night/mafiaVotes/" + myId).set(id); }
             if (myRole === "Doctor") {
+                playSound('sfx-doctor');
                 if(id === myId && selfSaveCount >= 2) return alert("Self-heal limit reached!");
                 db.ref("rooms/" + currentRoom + "/night/save").set(id);
                 if(id === myId) db.ref("rooms/" + currentRoom + "/players/" + myId).update({ selfSave: selfSaveCount + 1 });
             }
             if (myRole === "Police") {
+                playSound('sfx-police');
                 db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => {
                     document.getElementById("instruction").innerHTML = `<b style="color:#00e5ff">SCAN RESULT:</b><br>${s.val().name} is a ${s.val().role.toUpperCase()}`;
                 });
@@ -272,12 +316,9 @@ function renderTargets(callback) {
             if (players[id].alive && !(myRole === "Mafia" && id === myId && currentPhase === "night")) {
                 let d = document.createElement("div"); d.className = "playerCard"; d.innerText = players[id].name;
                 
-                // MAFIA PARTNER VOTE FEEDBACK
                 if(myRole === "Mafia") {
                     for(let mId in mafiaVotes) {
-                        if(mId !== myId && mafiaVotes[mId] === id) {
-                            d.innerHTML += `<span class="partner-vote">PARTNER</span>`;
-                        }
+                        if(mId !== myId && mafiaVotes[mId] === id) { d.innerHTML += `<span class="partner-vote">PARTNER</span>`; }
                     }
                 }
 
@@ -296,41 +337,45 @@ function renderTargets(callback) {
 
 function startDayLogic() {
     const area = document.getElementById("actionArea"); area.innerHTML = "";
+    
+    // TRIGGER PENGUMUMAN PAGI
+    playSound('sfx-announce');
+
     db.ref("rooms/" + currentRoom + "/lastDead").once("value", s => {
-        document.getElementById("instruction").innerHTML = (s.val() === "NONE") ? "Sunrise. <br><span style='color:#39ff14'>No casualties tonight.</span>" : "Sunrise. <br><span style='color:#ff003c'>A body was found.</span>";
+        if(s.val() !== "NONE") {
+             setTimeout(() => playSound('sfx-eliminate'), 1000); // Suara mati menyusul 1 detik setelah pengumuman
+             document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#ff003c'>A body was found.</span>";
+        } else {
+             document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#39ff14'>No casualties tonight.</span>";
+        }
     });
     setTimeout(() => {
         if(isPlayer && isAlive && currentPhase === "day") {
             document.getElementById("instruction").innerText = "DISCUSS & VOTE TO EXECUTE!";
-            renderTargets(id => { if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); });
+            renderTargets(id => { 
+                playSound('sfx-click');
+                if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); 
+            });
             let skp = document.createElement("button"); skp.innerText = "⏩ ABSTAIN / SKIP VOTE"; skp.style.width="90%"; skp.style.marginTop="10px";
-            skp.onclick = () => { db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Vote skipped."); };
+            skp.onclick = () => { playSound('sfx-click'); db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Vote skipped."); };
             area.appendChild(skp);
         }
     }, 4000);
 }
 
-// LOGIKA KONSENSUS MAFIA
 function resolveNight() {
+    playSound('sfx-click');
     db.ref("rooms/" + currentRoom).once("value", snap => {
-        let data = snap.val();
-        let players = data.players;
-        let night = data.night || {};
-        let mafiaVotes = night.mafiaVotes || {};
-        let saveTarget = night.save || null;
+        let data = snap.val(); let players = data.players; let night = data.night || {};
+        let mafiaVotes = night.mafiaVotes || {}; let saveTarget = night.save || null;
 
         let aliveMafias = [];
         for (let id in players) { if(players[id].alive && players[id].role === "Mafia") aliveMafias.push(id); }
 
-        let votes = Object.values(mafiaVotes);
-        let targetMati = null;
+        let votes = Object.values(mafiaVotes); let targetMati = null;
 
-        // CEK KONSENSUS
-        if (votes.length === aliveMafias.length && votes.every(v => v === votes[0]) && votes.length > 0) {
-            targetMati = votes[0];
-        } else if (aliveMafias.length > 0) {
-            alert("SYSTEM ERROR: Mafia consensus failed. Target survives.");
-        }
+        if (votes.length === aliveMafias.length && votes.every(v => v === votes[0]) && votes.length > 0) { targetMati = votes[0]; } 
+        else if (aliveMafias.length > 0) { alert("SYSTEM ERROR: Mafia consensus failed. Target survives."); }
 
         let matiFix = (targetMati && targetMati !== saveTarget) ? targetMati : null;
         if (matiFix) db.ref("rooms/" + currentRoom + "/players/" + matiFix).update({ alive: false });
@@ -341,6 +386,7 @@ function resolveNight() {
 }
 
 function resolveVote() {
+    playSound('sfx-click');
     db.ref("rooms/" + currentRoom + "/votes").once("value", s => {
         let v = s.val() || {}; let r = {};
         for (let p in v) if(v[p] !== "skip") r[v[p]] = (r[v[p]] || 0) + 1;
@@ -350,14 +396,25 @@ function resolveVote() {
         if (matiId) {
             db.ref("rooms/" + currentRoom + "/players/" + matiId).once("value", snap => {
                 let p = snap.val();
+                
+                // TRIGGER PENGUMUMAN EKSEKUSI
+                playSound('sfx-announce'); 
+
                 if (p.role === "Jester") { 
-                    db.ref("rooms/" + currentRoom + "/phase").set("end"); 
                     db.ref("rooms/" + currentRoom + "/endText").set("JESTER WINS!"); 
+                    db.ref("rooms/" + currentRoom + "/phase").set("end"); 
                 } else {
-                    db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false }).then(() => checkWin());
+                    setTimeout(() => {
+                        alert("JUDGEMENT: " + p.name + " IS EXECUTED!");
+                        playSound('sfx-eliminate');
+                        db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false }).then(() => checkWin());
+                    }, 500); // Delay alert setengah detik biar suara pengumuman bunyi dulu
                 }
             });
-        } else checkWin();
+        } else {
+            playSound('sfx-announce');
+            setTimeout(() => { alert("VOTE RESULT: TIE / SKIPPED. No one is executed."); checkWin(); }, 500);
+        }
         db.ref("rooms/" + currentRoom + "/votes").remove();
     });
 }
@@ -366,13 +423,20 @@ function checkWin() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let p = snap.val(), m = 0, w = 0; if(!p) return;
         for (let i in p) if (p[i].alive) p[i].role === "Mafia" ? m++ : w++;
-        if (m === 0) { db.ref("rooms/" + currentRoom + "/phase").set("end"); db.ref("rooms/" + currentRoom + "/endText").set("CITIZENS WIN!"); }
-        else if (m >= w) { db.ref("rooms/" + currentRoom + "/phase").set("end"); db.ref("rooms/" + currentRoom + "/endText").set("MAFIA WINS!"); }
+        if (m === 0) { 
+            db.ref("rooms/" + currentRoom + "/endText").set("CITIZENS WIN!"); 
+            db.ref("rooms/" + currentRoom + "/phase").set("end"); 
+        }
+        else if (m >= w) { 
+            db.ref("rooms/" + currentRoom + "/endText").set("MAFIA WINS!"); 
+            db.ref("rooms/" + currentRoom + "/phase").set("end"); 
+        }
         else if (currentPhase !== "day") db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" });
     });
 }
 
 function startGame() {
+    playSound('sfx-start');
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let ids = Object.keys(snap.val()); let roles = [];
         let jmlM = ids.length >= 7 ? 2 : 1;
@@ -386,7 +450,7 @@ function startGame() {
     });
 }
 function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); document.getElementById(id).classList.add("active"); }
-function setNightStep(s) { db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
+function setNightStep(s) { playSound('sfx-click'); db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
 </script>
 </body>
 </html>
