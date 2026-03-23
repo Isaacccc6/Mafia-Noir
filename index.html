@@ -3,69 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BORDERLAND: MAFIA SURVIVAL - DEALER EDITION</title>
+    <title>BORDERLAND: MAFIA SURVIVAL - NEON EDITION</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
     
     <style>
         * { box-sizing: border-box; }
         body { 
-            margin:0; background: #000; color:#ffffff; text-align:center; 
+            margin:0; background: #050505; color:#ffffff; text-align:center; 
             font-family: 'Share Tech Mono', monospace; font-size: 18px;
-            background-image: linear-gradient(rgba(0,0,0,0.9), rgba(15,15,15,0.95)), url('https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800');
+            background-image: linear-gradient(rgba(5,5,5,0.9), rgba(20,0,5,0.95)), url('https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800');
             background-size: cover; background-attachment: fixed;
-            filter: grayscale(100%); 
         }
 
-        h1 { font-family: 'Orbitron', sans-serif; color: #ffffff; text-shadow: 0 0 10px #ffffff, 0 0 20px #888888; font-size: 30px; margin: 20px 0; letter-spacing: 2px;}
+        /* NEON RED ACCENTS */
+        h1 { font-family: 'Orbitron', sans-serif; color: #ff003c; text-shadow: 0 0 10px #ff003c, 0 0 20px #8a0020; font-size: 30px; margin: 20px 0; letter-spacing: 2px;}
         h2 { font-family: 'Orbitron', sans-serif; color: #ffffff; letter-spacing: 1px;}
         
         .screen { position:absolute; width:100%; height:100%; display:none; padding: 20px 10px; box-sizing: border-box; overflow-y: auto; }
         .active { display:block; }
         
         .card { 
-            background: rgba(10, 10, 10, 0.9); margin:15px auto; padding:20px; border-radius:2px; 
-            width: 95%; max-width: 500px; border: 2px solid #ffffff;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            background: rgba(10, 10, 10, 0.85); margin:15px auto; padding:20px; border-radius:4px; 
+            width: 95%; max-width: 500px; border: 1px solid #ff003c;
+            box-shadow: 0 0 15px rgba(255, 0, 60, 0.2);
         }
         
         input { 
-            padding: 14px; border-radius: 0px; border: 1px solid #777777; margin-bottom: 12px; 
+            padding: 14px; border-radius: 0px; border: 1px solid #ff003c; margin-bottom: 12px; 
             width: 90%; font-size: 16px; background: #000; color: #fff; text-align: center;
-            font-family: 'Share Tech Mono', monospace; outline: none; transition: 0.2s;
+            font-family: 'Share Tech Mono', monospace; outline: none;
         }
-        input:focus { border-color: #ffffff; box-shadow: 0 0 10px #ffffff; }
+        input:focus { box-shadow: 0 0 10px #ff003c; }
 
         button { 
-            padding:14px 24px; border: 1px solid #ffffff; border-radius:0px; 
-            background: transparent; color:#ffffff; margin:5px; cursor:pointer; 
+            padding:14px 24px; border: 1px solid #ff003c; border-radius:0px; 
+            background: rgba(255, 0, 60, 0.1); color:#ff003c; margin:5px; cursor:pointer; 
             font-weight: bold; text-transform: uppercase; font-family: 'Share Tech Mono', monospace;
             transition: 0.2s; letter-spacing: 1px;
         }
-        button:hover { background: #ffffff; color: #000; box-shadow: 0 0 15px #ffffff; }
+        button:hover { background: #ff003c; color: #000; box-shadow: 0 0 15px #ff003c; }
+        
+        .btn-join { border-color: #00e5ff; color: #00e5ff; background: rgba(0, 229, 255, 0.1); }
+        .btn-join:hover { background: #00e5ff; color: #000; box-shadow: 0 0 15px #00e5ff; }
+        
+        .btn-start { border-color: #39ff14; color: #39ff14; background: rgba(57, 255, 20, 0.1); display: none; }
+        .btn-start:hover { background: #39ff14; color: #000; box-shadow: 0 0 15px #39ff14;}
 
         li { 
-            padding:12px; margin:8px 0; background: rgba(255,255,255,0.05); border: 1px solid #ffffff; 
+            padding:12px; margin:8px 0; background: rgba(255,0,60,0.05); border: 1px solid #ff003c; 
             display: flex; justify-content: space-between; font-size: 15px; text-transform: uppercase;
         }
-        .dead { background:#111; text-decoration:line-through; color: #555; border-color: #555; }
+        .dead { background:#1a0004; text-decoration:line-through; color: #555; border-color: #555; }
 
-        #hostPanel { display:none; background:rgba(0, 0, 0, 0.95); padding:15px; border-top: 2px solid #ffffff; position: fixed; bottom: 0; width: 100%; z-index: 100; }
+        #hostPanel { display:none; background:rgba(0, 0, 0, 0.95); padding:15px; border-top: 2px solid #ff003c; position: fixed; bottom: 0; width: 100%; z-index: 100; }
         .host-btn { font-size: 12px; padding: 8px 12px; margin: 2px; }
         
-        #instruction { font-size:16px; color:#ffffff; border-left: 4px solid #ffffff; padding-left: 10px; text-align: left; min-height: 60px; background: rgba(255,255,255,0.05); padding: 10px;}
+        #instruction { font-size:16px; color:#ffffff; border-left: 4px solid #ff003c; padding-left: 10px; text-align: left; min-height: 60px; background: rgba(255,0,60,0.1); padding: 10px;}
         
         .playerCard { 
-            border:1px solid #777777; padding:15px; margin:8px; display:inline-block; 
+            border:1px solid #fff; padding:15px; margin:8px; display:inline-block; 
             min-width: 120px; background: #000; position: relative; cursor: pointer;
-            text-transform: uppercase; transition: 0.2s; border-radius: 2px;
+            text-transform: uppercase; transition: 0.2s;
         }
-        .selectedTarget { border-color:#ffffff !important; background: #ffffff !important; color: #000000 !important; font-weight: bold; box-shadow: 0 0 15px #ffffff; }
-        .partner-vote { position: absolute; top: -10px; right: -10px; background: #ffffff; color: #000; font-size: 10px; padding: 2px 5px; font-weight: bold; border: 1px solid #000;}
+        .selectedTarget { border-color:#ff003c !important; background: #ff003c !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 15px #ff003c; }
+        .partner-vote { position: absolute; top: -10px; right: -10px; background: #00e5ff; color: #000; font-size: 10px; padding: 2px 5px; font-weight: bold; border: 1px solid #000;}
 
         /* Dealer Terminal Styling */
-        .terminal-status { border-bottom: 1px solid #333; padding: 5px 0; display: flex; justify-content: space-between; font-size: 11px; font-family: 'Share Tech Mono', monospace;}
-        .status-ready { color: #fff; text-shadow: 0 0 5px #fff; font-weight: bold; }
+        .terminal-status { border-bottom: 1px solid #222; padding: 5px 0; display: flex; justify-content: space-between; font-size: 11px;}
+        .status-ready { color: #39ff14; text-shadow: 0 0 5px #39ff14; font-weight: bold; }
         .status-waiting { color: #444; }
     </style>
 </head>
@@ -85,11 +91,11 @@
     </div>
     
     <div class="card" style="text-align: left; font-size: 13px; color: #ddd;">
-        <center><b style="color: #ffffff; font-size: 16px;">♦️ GAME RULES ♣️</b></center><br>
+        <center><b style="color: #ff003c; font-size: 16px;">♦️ GAME RULES ♣️</b></center><br>
         ♠️ <b>MAFIA:</b> Must select the SAME target to execute.<br>
         ♥️ <b>DOCTOR:</b> Protect a player. Self-heal max 2x.<br>
         ♦️ <b>POLICE:</b> Scan to reveal identity.<br>
-        🃏 <b style="color: #ffffff; text-shadow: 0 0 5px #ffffff;">JESTER: Wins if executed by daytime vote!</b><br>
+        🃏 <b style="color: #ff003c;">JESTER: Wins if executed by daytime vote!</b><br>
         ♣️ <b>CITIZEN: Survive and find the Mafia.</b>
     </div>
 </div>
@@ -97,7 +103,7 @@
 <div id="screenWaiting" class="screen">
     <h2>⏳ REGISTRATION PHASE</h2>
     <div class="card">
-        <p id="roomDisplay" style="color:#ffffff; font-size: 20px; font-family: 'Orbitron', sans-serif;"></p>
+        <p id="roomDisplay" style="color:#ff003c; font-size: 20px; font-family: 'Orbitron', sans-serif;"></p>
         <ul id="playerListWait"></ul>
     </div>
     <div style="margin-top: 20px;">
@@ -110,14 +116,14 @@
     <h2 id="phaseText">--</h2>
     <div class="card"><p id="instruction">Awaiting Dealer's command...</p></div>
     
-    <div id="playerInfo" class="card" style="border-color: #ffffff; display: none;">
-        <h3 id="roleText" style="margin:0; color: #ffffff;">ROLE: ?</h3>
+    <div id="playerInfo" class="card" style="border-color: #00e5ff; display: none;">
+        <h3 id="roleText" style="margin:0; color: #00e5ff;">ROLE: ?</h3>
         <small id="statusExtra" style="color: #fff;"></small>
     </div>
 
-    <div id="hostInfo" class="card" style="display: none; text-align: left; border-color: #ffffff;">
-        <center><b style="color: #ffffff;">👁️ DEALER TERMINAL</b></center>
-        <div id="nightStatusPanel" style="margin-top: 10px; background: #111; padding: 10px; border: 1px solid #333;">
+    <div id="hostInfo" class="card" style="display: none; text-align: left; border-color: #39ff14;">
+        <center><b style="color: #39ff14;">👁️ DEALER TERMINAL</b></center>
+        <div id="nightStatusPanel" style="margin-top: 10px; background: #000; padding: 10px; border: 1px solid #222;">
             <div class="terminal-status">MAFIA OPS: <span id="statusMafia" class="status-waiting">WAITING</span></div>
             <div class="terminal-status">DOCTOR OPS: <span id="statusDoctor" class="status-waiting">WAITING</span></div>
             <div class="terminal-status">POLICE OPS: <span id="statusPolice" class="status-waiting">WAITING</span></div>
@@ -132,18 +138,18 @@
             <button class="host-btn" onclick="setNightStep('mafia')">CALL MAFIA</button>
             <button class="host-btn" onclick="setNightStep('doctor')">CALL DOCTOR</button>
             <button class="host-btn" onclick="setNightStep('police')">CALL POLICE</button>
-            <button class="host-btn" onclick="resolveNight()">☀️ INITIATE SUNRISE</button>
+            <button class="host-btn" onclick="resolveNight()" style="border-color: #39ff14; color: #39ff14;">☀️ INITIATE SUNRISE</button>
         </div>
         <div id="dayControls" style="display:none;">
-            <button class="host-btn" onclick="resolveVote()" style="width: 90%;">TALLY VOTES 🗳️</button>
+            <button class="host-btn" onclick="resolveVote()" style="border-color: #ff003c; color: #ff003c; width: 90%;">TALLY VOTES 🗳️</button>
         </div>
         <button class="host-btn" onclick="db.ref('rooms/'+currentRoom).remove()" style="border-color: #555; color: #555; width: 90%; margin-top:10px;">❌ TERMINATE ARENA</button>
     </div>
 </div>
 
 <div id="screenEnd" class="screen">
-    <h1 id="endText" style="color: #ffffff; text-shadow: 0 0 15px #ffffff; font-size: 40px; margin-bottom: 5px;">GAME CLEAR</h1>
-    <h2 id="winnerDisplay" style="color: #ffffff; font-size: 24px; margin-top: 0; margin-bottom: 30px;">--</h2>
+    <h1 id="endText" style="color: #ff003c; font-size: 40px; margin-bottom: 5px;">GAME CLEAR</h1>
+    <h2 id="winnerDisplay" style="color: #39ff14; font-size: 24px; margin-top: 0; margin-bottom: 30px;">--</h2>
     <button onclick="location.reload()">RETURN TO REALITY</button>
 </div>
 
@@ -209,7 +215,7 @@ function listenGame() {
         for (let id in players) {
             let p = players[id];
             listW += `<li class="${p.alive ? '' : 'dead'}"><span>${p.name}</span></li>`;
-            monW += `<div style="color:${p.alive ? '#fff' : '#555'}; margin-bottom: 5px;"> ${p.alive ? '[ALIVE]' : '[DEAD]'} <b>${p.name}</b>: ${p.role.toUpperCase()}</div>`;
+            monW += `<div style="color:${p.alive ? '#39ff14' : '#ff003c'}; margin-bottom: 5px;"> ${p.alive ? '[ALIVE]' : '[DEAD]'} <b>${p.name}</b>: ${p.role.toUpperCase()}</div>`;
             if (p.alive && p.role === "Mafia") aliveMafias++;
             if (id === myId) { 
                 myRole = p.role; isAlive = p.alive; selfSaveCount = p.selfSave || 0;
@@ -242,7 +248,10 @@ function listenGame() {
         currentPhase = s.val();
         if (currentPhase === "end") {
             db.ref("rooms/" + currentRoom + "/endText").once("value", snap => {
-                if(snap.exists()) document.getElementById("winnerDisplay").innerText = "[ " + snap.val() + " ]";
+                if(snap.exists()) {
+                    document.getElementById("winnerDisplay").innerText = "[ " + snap.val() + " ]";
+                    document.getElementById("winnerDisplay").style.color = snap.val().includes("MAFIA") ? "#ff003c" : "#39ff14";
+                }
             });
             showScreen("screenEnd");
         } else {
@@ -280,7 +289,7 @@ function updateNightTurnUI(step) {
             if (myRole === "Police") {
                 db.ref("rooms/" + currentRoom + "/night/policeScan").set(true);
                 db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => {
-                    document.getElementById("instruction").innerHTML = `<b style="color:#ffffff; text-shadow: 0 0 5px #ffffff;">SCAN RESULT:</b><br>${s.val().name} is a ${s.val().role.toUpperCase()}`;
+                    document.getElementById("instruction").innerHTML = `<b style="color:#00e5ff">SCAN RESULT:</b><br>${s.val().name} is a ${s.val().role.toUpperCase()}`;
                 });
             }
         });
@@ -315,8 +324,8 @@ function startDayLogic() {
     const area = document.getElementById("actionArea"); area.innerHTML = "";
     playSound('sfx-announce');
     db.ref("rooms/" + currentRoom + "/lastDead").once("value", s => {
-        if(s.val() !== "NONE") document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#ffffff; font-weight:bold; text-shadow: 0 0 5px #ffffff;'>A body was found.</span>";
-        else document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#777777'>No casualties tonight.</span>";
+        if(s.val() !== "NONE") document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#ff003c; font-weight:bold; text-shadow: 0 0 5px #ff003c;'>A body was found.</span>";
+        else document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#39ff14'>No casualties tonight.</span>";
     });
     setTimeout(() => {
         if(isPlayer && isAlive && currentPhase === "day") {
