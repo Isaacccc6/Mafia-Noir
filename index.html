@@ -42,7 +42,6 @@
             transition: 0.2s; letter-spacing: 1px;
         }
         button:hover { background: #ff003c; color: #000; box-shadow: 0 0 15px #ff003c; }
-        button:active { transform: scale(0.98); }
         
         .btn-join { border-color: #00e5ff; color: #00e5ff; background: rgba(0, 229, 255, 0.1); }
         .btn-join:hover { background: #00e5ff; color: #000; box-shadow: 0 0 15px #00e5ff; }
@@ -58,21 +57,11 @@
 
         #hostPanel { display:none; background:rgba(0, 0, 0, 0.95); padding:15px; border-top: 2px solid #ff003c; position: fixed; bottom: 0; width: 100%; z-index: 100; }
         .host-btn { font-size: 12px; padding: 8px 12px; margin: 2px; }
-        
         #instruction { font-size:16px; color:#ffffff; border-left: 4px solid #ff003c; padding-left: 10px; text-align: left; min-height: 60px; background: rgba(255,0,60,0.1); padding: 10px;}
         
-        .playerCard { 
-            border:1px solid #fff; padding:15px; margin:8px; display:inline-block; 
-            min-width: 120px; background: #000; position: relative; cursor: pointer;
-            text-transform: uppercase; transition: 0.2s;
-        }
-        .playerCard:hover { border-color: #ff003c; }
+        .playerCard { border:1px solid #fff; padding:15px; margin:8px; display:inline-block; min-width: 120px; background: #000; position: relative; cursor: pointer; text-transform: uppercase; transition: 0.2s;}
         .selectedTarget { border-color:#ff003c !important; background: #ff003c !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 15px #ff003c; }
-        
         .partner-vote { position: absolute; top: -10px; right: -10px; background: #00e5ff; color: #000; font-size: 10px; padding: 2px 5px; font-weight: bold; border: 1px solid #000;}
-
-        #fog { position:fixed; width:100%; height:100%; background:black; opacity:0; transition:0.8s; z-index:999; pointer-events:none; top:0; left:0; }
-        .fog-active { opacity: 1 !important; }
     </style>
 </head>
 <body>
@@ -80,8 +69,6 @@
 <audio id="sfx-start" src="https://isaacccc6.github.io/Mafia-Noir/end-registration.mp3"></audio>
 <audio id="sfx-announce" src="https://isaacccc6.github.io/Mafia-Noir/notification-phone.mp3"></audio>
 <audio id="sfx-end" src="https://isaacccc6.github.io/Mafia-Noir/game-clear.mp3"></audio>
-
-<div id="fog"></div>
 
 <div id="screenLobby" class="screen active">
     <h1>♠️ BORDERLAND: MAFIA ♥️</h1>
@@ -94,11 +81,10 @@
     
     <div class="card" style="text-align: left; font-size: 13px; color: #ddd;">
         <center><b style="color: #ff003c; font-size: 16px;">♦️ GAME RULES ♣️</b></center><br>
-        ♠️ <b>MAFIA:</b> Must select the SAME target to execute.<br>
-        ♥️ <b>DOCTOR:</b> Protect a player. Self-heal max 2x.<br>
-        ♦️ <b>POLICE:</b> Scan to reveal a player's true identity.<br>
-        🃏 <b style="color: #ff003c;">JESTER: Wins immediately if executed by daytime vote!</b><br>
-        ♣️ <b>CITIZEN:</b> Deduce the Mafia to survive.
+        ♠️ <b>MAFIA:</b> Consensus required to execute.<br>
+        ♥️ <b>DOCTOR:</b> Protect. Self-heal max 2x.<br>
+        ♦️ <b>POLICE:</b> Reveal player identity.<br>
+        🃏 <b style="color: #ff003c;">JESTER: Wins if executed by daytime vote!</b>
     </div>
 </div>
 
@@ -154,16 +140,14 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script>
-// --- AUDIO PLAY FUNCTION ---
 function playSound(id) {
     const audio = document.getElementById(id);
     if (audio) {
         audio.currentTime = 0; 
-        audio.play().catch(e => console.log("Audio play blocked by browser. User interaction needed."));
+        audio.play().catch(e => console.log("Audio blocked. Interaction needed."));
     }
 }
 
-// --- CONFIG FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyApYcGhedNxPzFHipQkPfAT0W-WigUVG0k",
     authDomain: "mafia-game-4ad1b.firebaseapp.com",
@@ -182,7 +166,6 @@ localStorage.setItem("mafia_uid", myId);
 let currentRoom = "", isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, currentPhase = "", selfSaveCount = 0;
 
 function createRoom() {
-    playSound('sfx-click');
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
     if (!room) return alert("Enter Arena ID!");
     currentRoom = room; isHost = true;
@@ -194,10 +177,9 @@ function createRoom() {
 }
 
 function joinRoom() {
-    playSound('sfx-click');
     let name = document.getElementById("inputName").value.trim().toUpperCase();
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
-    if (!name || !room) return alert("Fill in your details!");
+    if (!name || !room) return alert("Fill in details!");
     db.ref("rooms/" + room).once("value", snap => {
         if (!snap.exists()) return alert("Arena not found!");
         currentRoom = room; isPlayer = true;
@@ -231,11 +213,10 @@ function listenGame() {
     db.ref("rooms/" + currentRoom + "/phase").on("value", s => {
         if (!s.val()) return;
         
-        // TRIGGER NIGHT SOUND
-        if(s.val() === "night" && currentPhase !== "night" && currentPhase !== "") { playSound('sfx-night'); }
-
-        // TRIGGER END GAME SOUND
-        if(s.val() === "end" && currentPhase !== "end") { playSound('sfx-end'); }
+        // SYNC: Game Starto!
+        if(s.val() === "night" && currentPhase === "waiting") { playSound('sfx-start'); }
+        // SYNC: Game Clear!
+        else if(s.val() === "end" && currentPhase !== "end") { playSound('sfx-end'); }
 
         currentPhase = s.val();
         
@@ -243,23 +224,21 @@ function listenGame() {
             db.ref("rooms/" + currentRoom + "/endText").once("value", snap => {
                 if(snap.exists()) {
                     document.getElementById("winnerDisplay").innerText = "[ " + snap.val() + " ]";
-                    if(snap.val().includes("MAFIA")) document.getElementById("winnerDisplay").style.color = "#ff003c";
-                    else if(snap.val().includes("CITIZENS")) document.getElementById("winnerDisplay").style.color = "#39ff14";
-                    else document.getElementById("winnerDisplay").style.color = "#00e5ff"; 
+                    document.getElementById("winnerDisplay").style.color = snap.val().includes("MAFIA") ? "#ff003c" : "#39ff14";
                 }
             });
             showScreen("screenEnd");
-        } else if (currentPhase === "waiting") {
-            showScreen("screenWaiting");
         } else {
-            showScreen("screenGame");
-            document.getElementById("phaseText").innerText = currentPhase === "night" ? "🌙 NIGHT PHASE" : "☀️ DAY PHASE";
-            document.getElementById("hostPanel").style.display = isHost ? "block" : "none";
-            document.getElementById("dayControls").style.display = (isHost && currentPhase === "day") ? "block" : "none";
-            document.getElementById("nightControls").style.display = (isHost && currentPhase === "night") ? "block" : "none";
-            document.getElementById("hostInfo").style.display = isHost ? "block" : "none";
-            document.getElementById("playerInfo").style.display = isPlayer ? "block" : "none";
-            if(currentPhase === "day") startDayLogic();
+            showScreen(currentPhase === "waiting" ? "screenWaiting" : "screenGame");
+            if(currentPhase === "day" || currentPhase === "night") {
+                document.getElementById("phaseText").innerText = currentPhase === "night" ? "🌙 NIGHT PHASE" : "☀️ DAY PHASE";
+                document.getElementById("hostPanel").style.display = isHost ? "block" : "none";
+                document.getElementById("dayControls").style.display = (isHost && currentPhase === "day") ? "block" : "none";
+                document.getElementById("nightControls").style.display = (isHost && currentPhase === "night") ? "block" : "none";
+                document.getElementById("hostInfo").style.display = isHost ? "block" : "none";
+                document.getElementById("playerInfo").style.display = isPlayer ? "block" : "none";
+                if(currentPhase === "day") startDayLogic();
+            }
         }
     });
 
@@ -271,21 +250,19 @@ function updateNightTurnUI(step) {
     if (currentPhase !== "night") return;
     area.innerHTML = "";
     if (isHost) { document.getElementById("instruction").innerText = "Dealer Task: Call [" + step.toUpperCase() + "]"; return; }
-    if (!isAlive) { document.getElementById("instruction").innerText = "You are dead. Wait for the game to end."; return; }
+    if (!isAlive) return;
 
-    if (step === "none") document.getElementById("instruction").innerText = "Night falls. Waiting for Dealer...";
+    if (step === "none") document.getElementById("instruction").innerText = "Night falls. Pejamkan mata.";
     else if (myRole.toLowerCase() === step) {
         document.getElementById("instruction").innerText = "ACTION REQUIRED: Select your target.";
         renderTargets(id => {
-            if (myRole === "Mafia") { playSound('sfx-mafia'); db.ref("rooms/" + currentRoom + "/night/mafiaVotes/" + myId).set(id); }
+            if (myRole === "Mafia") { db.ref("rooms/" + currentRoom + "/night/mafiaVotes/" + myId).set(id); }
             if (myRole === "Doctor") {
-                playSound('sfx-doctor');
                 if(id === myId && selfSaveCount >= 2) return alert("Self-heal limit reached!");
                 db.ref("rooms/" + currentRoom + "/night/save").set(id);
                 if(id === myId) db.ref("rooms/" + currentRoom + "/players/" + myId).update({ selfSave: selfSaveCount + 1 });
             }
             if (myRole === "Police") {
-                playSound('sfx-police');
                 db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => {
                     document.getElementById("instruction").innerHTML = `<b style="color:#00e5ff">SCAN RESULT:</b><br>${s.val().name} is a ${s.val().role.toUpperCase()}`;
                 });
@@ -295,28 +272,20 @@ function updateNightTurnUI(step) {
 }
 
 function renderTargets(callback) {
-    const area = document.getElementById("actionArea");
-    area.innerHTML = "";
+    const area = document.getElementById("actionArea"); area.innerHTML = "";
     db.ref("rooms/" + currentRoom).once("value", snap => {
-        let roomData = snap.val();
-        let players = roomData.players;
-        let night = roomData.night || {};
-        let mafiaVotes = night.mafiaVotes || {};
+        let roomData = snap.val(); let players = roomData.players;
+        let night = roomData.night || {}; let mafiaVotes = night.mafiaVotes || {};
         let hasActed = false;
 
         for (let id in players) {
             if (players[id].alive && !(myRole === "Mafia" && id === myId && currentPhase === "night")) {
                 let d = document.createElement("div"); d.className = "playerCard"; d.innerText = players[id].name;
-                
                 if(myRole === "Mafia") {
-                    for(let mId in mafiaVotes) {
-                        if(mId !== myId && mafiaVotes[mId] === id) { d.innerHTML += `<span class="partner-vote">PARTNER</span>`; }
-                    }
+                    for(let mId in mafiaVotes) { if(mId !== myId && mafiaVotes[mId] === id) d.innerHTML += `<span class="partner-vote">PARTNER</span>`; }
                 }
-
                 d.onclick = function() {
-                    if(hasActed) return;
-                    hasActed = true;
+                    if(hasActed) return; hasActed = true;
                     document.querySelectorAll(".playerCard").forEach(c => c.style.opacity = "0.3");
                     d.style.opacity = "1"; d.classList.add("selectedTarget");
                     callback(id);
@@ -329,13 +298,11 @@ function renderTargets(callback) {
 
 function startDayLogic() {
     const area = document.getElementById("actionArea"); area.innerHTML = "";
-    
-    // TRIGGER PENGUMUMAN PAGI
+    // SYNC ANNOUNCE: Pagi Hari
     playSound('sfx-announce');
 
     db.ref("rooms/" + currentRoom + "/lastDead").once("value", s => {
         if(s.val() !== "NONE") {
-             setTimeout(() => playSound('sfx-eliminate'), 1000); // Suara mati menyusul 1 detik setelah pengumuman
              document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#ff003c'>A body was found.</span>";
         } else {
              document.getElementById("instruction").innerHTML = "Sunrise. <br><span style='color:#39ff14'>No casualties tonight.</span>";
@@ -344,68 +311,52 @@ function startDayLogic() {
     setTimeout(() => {
         if(isPlayer && isAlive && currentPhase === "day") {
             document.getElementById("instruction").innerText = "DISCUSS & VOTE TO EXECUTE!";
-            renderTargets(id => { 
-                playSound('sfx-click');
-                if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); 
-            });
-            let skp = document.createElement("button"); skp.innerText = "⏩ ABSTAIN / SKIP VOTE"; skp.style.width="90%"; skp.style.marginTop="10px";
-            skp.onclick = () => { playSound('sfx-click'); db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Vote skipped."); };
+            renderTargets(id => { if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); });
+            let skp = document.createElement("button"); skp.innerText = "⏩ SKIP VOTE"; skp.style.width="90%"; skp.style.marginTop="10px";
+            skp.onclick = () => { db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Vote skipped."); };
             area.appendChild(skp);
         }
     }, 4000);
 }
 
 function resolveNight() {
-    playSound('sfx-click');
     db.ref("rooms/" + currentRoom).once("value", snap => {
         let data = snap.val(); let players = data.players; let night = data.night || {};
         let mafiaVotes = night.mafiaVotes || {}; let saveTarget = night.save || null;
-
         let aliveMafias = [];
         for (let id in players) { if(players[id].alive && players[id].role === "Mafia") aliveMafias.push(id); }
-
         let votes = Object.values(mafiaVotes); let targetMati = null;
-
         if (votes.length === aliveMafias.length && votes.every(v => v === votes[0]) && votes.length > 0) { targetMati = votes[0]; } 
-        else if (aliveMafias.length > 0) { alert("SYSTEM ERROR: Mafia consensus failed. Target survives."); }
-
         let matiFix = (targetMati && targetMati !== saveTarget) ? targetMati : null;
         if (matiFix) db.ref("rooms/" + currentRoom + "/players/" + matiFix).update({ alive: false });
-
         db.ref("rooms/" + currentRoom).update({ phase: "day", lastDead: matiFix || "NONE", nightStep: "none" });
         db.ref("rooms/" + currentRoom + "/night").remove();
     });
 }
 
 function resolveVote() {
-    playSound('sfx-click');
     db.ref("rooms/" + currentRoom + "/votes").once("value", s => {
         let v = s.val() || {}; let r = {};
         for (let p in v) if(v[p] !== "skip") r[v[p]] = (r[v[p]] || 0) + 1;
         let sorted = Object.keys(r).sort((a, b) => r[b] - r[a]);
         let matiId = (sorted.length > 0 && (r[sorted[0]] > (r[sorted[1]] || 0))) ? sorted[0] : null;
 
+        // SYNC ANNOUNCE: Hasil Voting
+        playSound('sfx-announce'); 
+
         if (matiId) {
             db.ref("rooms/" + currentRoom + "/players/" + matiId).once("value", snap => {
                 let p = snap.val();
-                
-                // TRIGGER PENGUMUMAN EKSEKUSI
-                playSound('sfx-announce'); 
-
-                if (p.role === "Jester") { 
-                    db.ref("rooms/" + currentRoom + "/endText").set("JESTER WINS!"); 
-                    db.ref("rooms/" + currentRoom + "/phase").set("end"); 
-                } else {
+                if (p.role === "Jester") { db.ref("rooms/" + currentRoom + "/endText").set("JESTER WINS!"); db.ref("rooms/" + currentRoom + "/phase").set("end"); } 
+                else {
                     setTimeout(() => {
                         alert("JUDGEMENT: " + p.name + " IS EXECUTED!");
-                        playSound('sfx-eliminate');
                         db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false }).then(() => checkWin());
-                    }, 500); // Delay alert setengah detik biar suara pengumuman bunyi dulu
+                    }, 500);
                 }
             });
         } else {
-            playSound('sfx-announce');
-            setTimeout(() => { alert("VOTE RESULT: TIE / SKIPPED. No one is executed."); checkWin(); }, 500);
+            setTimeout(() => { alert("VOTE RESULT: TIE / SKIPPED."); checkWin(); }, 500);
         }
         db.ref("rooms/" + currentRoom + "/votes").remove();
     });
@@ -415,20 +366,13 @@ function checkWin() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let p = snap.val(), m = 0, w = 0; if(!p) return;
         for (let i in p) if (p[i].alive) p[i].role === "Mafia" ? m++ : w++;
-        if (m === 0) { 
-            db.ref("rooms/" + currentRoom + "/endText").set("CITIZENS WIN!"); 
-            db.ref("rooms/" + currentRoom + "/phase").set("end"); 
-        }
-        else if (m >= w) { 
-            db.ref("rooms/" + currentRoom + "/endText").set("MAFIA WINS!"); 
-            db.ref("rooms/" + currentRoom + "/phase").set("end"); 
-        }
+        if (m === 0) { db.ref("rooms/" + currentRoom + "/endText").set("CITIZENS WIN!"); db.ref("rooms/" + currentRoom + "/phase").set("end"); }
+        else if (m >= w) { db.ref("rooms/" + currentRoom + "/endText").set("MAFIA WINS!"); db.ref("rooms/" + currentRoom + "/phase").set("end"); }
         else if (currentPhase !== "day") db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" });
     });
 }
 
 function startGame() {
-    playSound('sfx-start');
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let ids = Object.keys(snap.val()); let roles = [];
         let jmlM = ids.length >= 7 ? 2 : 1;
@@ -442,7 +386,7 @@ function startGame() {
     });
 }
 function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); document.getElementById(id).classList.add("active"); }
-function setNightStep(s) { playSound('sfx-click'); db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
+function setNightStep(s) { db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
 </script>
 </body>
 </html>
