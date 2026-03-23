@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAFIA: NOIR - JESTER UNLOCKED</title>
+    <title>MAFIA: NOIR - CONSENSUS EDITION</title>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&family=Playfair+Display:wght@700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
@@ -26,8 +26,9 @@
         #hostPanel { display:none; background:rgba(0, 0, 0, 0.95); padding:15px; border-top: 3px solid #facc15; position: fixed; bottom: 0; width: 100%; z-index: 100; }
         .host-btn { background: #ca8a04; font-size: 10px; padding: 8px 12px; margin: 2px; }
         #instruction { font-size:16px; color:#fde047; font-family: 'Roboto Mono', monospace; border-left: 4px solid #b91c1c; padding-left: 10px; text-align: left; min-height: 60px;}
-        .playerCard { border:1px solid #4b5563; padding:15px; margin:8px; border-radius:4px; display:inline-block; min-width: 120px; background: #111827; }
+        .playerCard { border:1px solid #4b5563; padding:15px; margin:8px; border-radius:4px; display:inline-block; min-width: 120px; background: #111827; position: relative; }
         .selectedTarget { border-color:#b91c1c !important; background: #450a0a !important; }
+        .partner-vote { position: absolute; top: -10px; right: -10px; background: #facc15; color: #000; font-size: 10px; padding: 2px 5px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -40,14 +41,12 @@
         <button onclick="createRoom()" style="background: #6d28d9;">BUAT ROOM (WASIT)</button>
         <button onclick="joinRoom()" class="btn-join">IKUT MAIN (PLAYER)</button>
     </div>
-    
     <div class="card" style="text-align: left; font-size: 14px; color: #f1f5f9; border-color: #facc15;">
-        <center><b style="color: #facc15;">📜 DOSSIER PERAN (INFO)</b></center><br>
-        🌑 <b>Mafia:</b> Bunuh warga tiap malam.<br>
-        🏥 <b>Dokter:</b> Lindungi 1 orang.<br>
-        🔍 <b>Polisi:</b> Cek peran seseorang.<br>
-        <b style="color: #facc15;">🃏 Jester: Menang jika kamu di-vote mati saat siang hari!</b><br>
-        👨‍🌾 <b>Warga:</b> Temukan Mafia.
+        <center><b style="color: #facc15;">📜 DOSSIER PERAN</b></center><br>
+        🌑 <b>Mafia:</b> Harus pilih target yang SAMA untuk membunuh.<br>
+        🏥 <b>Dokter:</b> Lindungi warga. Self-save max 2x.<br>
+        🔍 <b>Polisi:</b> Hasil intel muncul di layar instruksi.<br>
+        🃏 <b>Jester:</b> Menang jika di-vote mati siang hari.
     </div>
 </div>
 
@@ -113,7 +112,7 @@ const db = firebase.database();
 let myId = localStorage.getItem("mafia_uid") || "u-" + Math.floor(Math.random() * 1000000);
 localStorage.setItem("mafia_uid", myId);
 
-let currentRoom = "", isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, currentPhase = "";
+let currentRoom = "", isHost = false, isPlayer = false, myRole = "Moderator", isAlive = true, currentPhase = "", selfSaveCount = 0;
 
 function createRoom() {
     let room = document.getElementById("inputRoom").value.trim().toUpperCase();
@@ -149,7 +148,11 @@ function listenGame() {
             let p = players[id];
             listW += `<li class="${p.alive ? '' : 'dead'}"><span>${p.name}</span></li>`;
             monW += `<div style="color:${p.alive ? '#fff' : '#4b5563'};"> ${p.alive ? '✅' : '💀'} <b>${p.name}</b>: ${p.role}</div>`;
-            if (id === myId) { myRole = p.role; isAlive = p.alive; document.getElementById("roleText").innerText = "Role: " + myRole + (isAlive ? "" : " (MATI)"); }
+            if (id === myId) { 
+                myRole = p.role; isAlive = p.alive; selfSaveCount = p.selfSave || 0;
+                document.getElementById("roleText").innerText = "Role: " + myRole + (isAlive ? "" : " (MATI)"); 
+                if(myRole === "Dokter") document.getElementById("statusExtra").innerText = "Self-save: " + selfSaveCount + "/2";
+            }
         }
         document.getElementById("playerListWait").innerHTML = listW;
         document.getElementById("monitorList").innerHTML = monW;
@@ -180,20 +183,60 @@ function updateNightTurnUI(step) {
     area.innerHTML = "";
     if (isHost) { document.getElementById("instruction").innerText = "Tugas Wasit: Panggil [" + step.toUpperCase() + "]"; return; }
     if (!isAlive) return;
+
     if (step === "none") document.getElementById("instruction").innerText = "Malam hari... Pejamkan mata.";
     else if (myRole.toLowerCase() === step) {
-        document.getElementById("instruction").innerText = "Pilih targetmu malam ini:";
+        document.getElementById("instruction").innerText = "Waktunya bertindak! Pilih target:";
         renderTargets(id => {
-            if (myRole === "Mafia") db.ref("rooms/" + currentRoom + "/night/kill").set(id);
-            if (myRole === "Dokter") db.ref("rooms/" + currentRoom + "/night/save").set(id);
+            if (myRole === "Mafia") db.ref("rooms/" + currentRoom + "/night/mafiaVotes/" + myId).set(id);
+            if (myRole === "Dokter") {
+                if(id === myId && selfSaveCount >= 2) return alert("Limit self-save habis!");
+                db.ref("rooms/" + currentRoom + "/night/save").set(id);
+                if(id === myId) db.ref("rooms/" + currentRoom + "/players/" + myId).update({ selfSave: selfSaveCount + 1 });
+            }
             if (myRole === "Polisi") {
                 db.ref("rooms/" + currentRoom + "/players/" + id).once("value", s => {
                     document.getElementById("instruction").innerHTML = `<b style="color:#facc15">HASIL INTEL:</b><br>${s.val().name} adalah ${s.val().role.toUpperCase()}`;
-                    alert("INTEL: " + s.val().name + " adalah " + s.val().role.toUpperCase());
                 });
             }
         });
     } else document.getElementById("instruction").innerText = "Wasit memanggil " + step.toUpperCase();
+}
+
+function renderTargets(callback) {
+    const area = document.getElementById("actionArea");
+    area.innerHTML = "";
+    db.ref("rooms/" + currentRoom).once("value", snap => {
+        let roomData = snap.val();
+        let players = roomData.players;
+        let night = roomData.night || {};
+        let mafiaVotes = night.mafiaVotes || {};
+        let hasActed = false;
+
+        for (let id in players) {
+            if (players[id].alive && !(myRole === "Mafia" && id === myId && currentPhase === "night")) {
+                let d = document.createElement("div"); d.className = "playerCard"; d.innerText = players[id].name;
+                
+                // MAFIA PARTNER VOTE FEEDBACK
+                if(myRole === "Mafia") {
+                    for(let mId in mafiaVotes) {
+                        if(mId !== myId && mafiaVotes[mId] === id) {
+                            d.innerHTML += `<span class="partner-vote">PARTNER</span>`;
+                        }
+                    }
+                }
+
+                d.onclick = function() {
+                    if(hasActed) return;
+                    hasActed = true;
+                    document.querySelectorAll(".playerCard").forEach(c => c.style.opacity = "0.3");
+                    d.style.opacity = "1"; d.classList.add("selectedTarget");
+                    callback(id);
+                };
+                area.appendChild(d);
+            }
+        }
+    });
 }
 
 function startDayLogic() {
@@ -205,10 +248,41 @@ function startDayLogic() {
         if(isPlayer && isAlive && currentPhase === "day") {
             document.getElementById("instruction").innerText = "DISKUSI & VOTE!";
             renderTargets(id => { if(id !== myId) db.ref("rooms/" + currentRoom + "/votes/" + myId).set(id); });
-            let skp = document.createElement("button"); skp.innerText = "⏩ SKIP VOTE"; skp.style.width="90%"; skp.onclick = () => { db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Kamu memilih skip."); };
+            let skp = document.createElement("button"); skp.innerText = "⏩ SKIP VOTE"; skp.style.width="90%"; skp.onclick = () => { db.ref("rooms/"+currentRoom+"/votes/"+myId).set("skip"); alert("Skip!"); };
             area.appendChild(skp);
         }
     }, 4000);
+}
+
+// LOGIKA KONSENSUS MAFIA
+function resolveNight() {
+    db.ref("rooms/" + currentRoom).once("value", snap => {
+        let data = snap.val();
+        let players = data.players;
+        let night = data.night || {};
+        let mafiaVotes = night.mafiaVotes || {};
+        let saveTarget = night.save || null;
+
+        // Cari Mafia hidup
+        let aliveMafias = [];
+        for (let id in players) { if(players[id].alive && players[id].role === "Mafia") aliveMafias.push(id); }
+
+        let votes = Object.values(mafiaVotes);
+        let targetMati = null;
+
+        // CEK KONSENSUS: Harus milih orang yang sama & jumlah vote == jumlah mafia hidup
+        if (votes.length === aliveMafias.length && votes.every(v => v === votes[0]) && votes.length > 0) {
+            targetMati = votes[0];
+        } else if (aliveMafias.length > 0) {
+            alert("MAFIA TIDAK KOMPAK / TIDAK SEMUA MEMILIH! Target selamat.");
+        }
+
+        let matiFix = (targetMati && targetMati !== saveTarget) ? targetMati : null;
+        if (matiFix) db.ref("rooms/" + currentRoom + "/players/" + matiFix).update({ alive: false });
+
+        db.ref("rooms/" + currentRoom).update({ phase: "day", lastDead: matiFix || "TIDAK ADA", nightStep: "none" });
+        db.ref("rooms/" + currentRoom + "/night").remove();
+    });
 }
 
 function resolveVote() {
@@ -225,11 +299,10 @@ function resolveVote() {
                     db.ref("rooms/" + currentRoom + "/phase").set("end"); 
                     db.ref("rooms/" + currentRoom + "/endText").set("JESTER MENANG!"); 
                 } else {
-                    alert(p.name + " DIEKSEKUSI!");
                     db.ref("rooms/" + currentRoom + "/players/" + matiId).update({ alive: false }).then(() => checkWin());
                 }
             });
-        } else { alert("HASIL SERI/SKIP!"); checkWin(); }
+        } else checkWin();
         db.ref("rooms/" + currentRoom + "/votes").remove();
     });
 }
@@ -238,34 +311,9 @@ function checkWin() {
     db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
         let p = snap.val(), m = 0, w = 0; if(!p) return;
         for (let i in p) if (p[i].alive) p[i].role === "Mafia" ? m++ : w++;
-        if (m === 0) { db.ref("rooms/" + currentRoom + "/phase").set("end"); }
-        else if (m >= w) { db.ref("rooms/" + currentRoom + "/phase").set("end"); }
-        else { db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" }); }
-    });
-}
-
-function renderTargets(callback) {
-    const area = document.getElementById("actionArea"); area.innerHTML = "";
-    db.ref("rooms/" + currentRoom + "/players").once("value", snap => {
-        let players = snap.val(); let hasActed = false;
-        for (let id in players) {
-            if (players[id].alive && !(myRole === "Mafia" && id === myId && currentPhase === "night")) {
-                let d = document.createElement("div"); d.className = "playerCard"; d.innerText = players[id].name;
-                d.onclick = function() { if(hasActed) return; hasActed = true; d.classList.add("selectedTarget"); callback(id); };
-                area.appendChild(d);
-            }
-        }
-    });
-}
-
-function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); document.getElementById(id).classList.add("active"); }
-function setNightStep(s) { db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
-function resolveNight() {
-    db.ref("rooms/" + currentRoom + "/night").once("value", s => {
-        let n = s.val() || {}; let m = (n.kill && n.kill !== n.save) ? n.kill : null;
-        if (m) db.ref("rooms/" + currentRoom + "/players/" + m).update({ alive: false });
-        db.ref("rooms/" + currentRoom).update({ phase: "day", lastDead: m || "TIDAK ADA", nightStep: "none" });
-        db.ref("rooms/" + currentRoom + "/night").remove();
+        if (m === 0) db.ref("rooms/" + currentRoom + "/phase").set("end");
+        else if (m >= w) db.ref("rooms/" + currentRoom + "/phase").set("end");
+        else if (currentPhase !== "day") db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" });
     });
 }
 
@@ -275,16 +323,15 @@ function startGame() {
         let jmlM = ids.length >= 7 ? 2 : 1;
         for(let i=0; i<jmlM; i++) roles.push("Mafia");
         roles.push("Dokter", "Polisi");
-        
-        // SEKARANG JESTER SELALU ADA JIKA PEMAIN MINIMAL 4
         if(ids.length >= 4) roles.push("Jester");
-        
         while(roles.length < ids.length) roles.push("Warga");
         roles.sort(() => Math.random() - 0.5);
-        ids.forEach((id, i) => db.ref("rooms/" + currentRoom + "/players/" + id).update({ role: roles[i], alive: true }));
+        ids.forEach((id, i) => db.ref("rooms/" + currentRoom + "/players/" + id).update({ role: roles[i], alive: true, selfSave: 0 }));
         db.ref("rooms/" + currentRoom).update({ phase: "night", nightStep: "none" });
     });
 }
+function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.remove("active")); document.getElementById(id).classList.add("active"); }
+function setNightStep(s) { db.ref("rooms/" + currentRoom).update({ nightStep: s }); }
 </script>
 </body>
 </html>
